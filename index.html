@@ -6,7 +6,6 @@
     <title>SLA Operational Intelligence | Ops de Campo Metro I</title>
     <style>
         :root {
-            /* Colores del diseño original */
             --bg-dark: #0f172a;
             --card-bg: #1e293b;
             --accent: #38bdf8;
@@ -175,7 +174,7 @@
 <div class="dashboard-container">
     <header>
         <div class="header-title">
-            <h1>Propuesta Analista Sr | Gestión Metro I - Arroyo Hondo <span style="font-weight: 200;">| Ops de Campo Metro I</span></h1>
+            <h1>VISION METRICS DPV <span style="font-weight: 200;">| Ops de Campo Metro I</span></h1>
             <p id="last-update">Actualizado: --</p>
         </div>
         <div class="header-actions">
@@ -219,7 +218,8 @@
             <option value="CUMPLE">Solo Cumplidos</option>
         </select>
         <div style="flex-grow: 1;"></div>
-<span id="contador-registros" style="font-size: 0.85rem; color: var(--text-dim)">Visualizando registros...</span>    </div>
+        <span id="contador-registros" style="font-size: 0.85rem; color: var(--text-dim)">Visualizando registros...</span>
+    </div>
 
     <div class="data-table-container">
         <table id="techTable">
@@ -229,6 +229,7 @@
                     <th>Zona</th>
                     <th>Consorcio</th>
                     <th>Sector</th>
+                    <th>Día</th>
                     <th>SLA</th>
                     <th>Respuesta Técnica</th>
                     <th>Tiempo</th>
@@ -248,6 +249,7 @@ const CONFIG = {
     zonas: ["Metro 1", "Metro 2", "Norte", "Sur", "Este"],
     sectores: ["Arroyo Hondo", "Naco", "Los Mina", "Herrera", "Bella Vista", "Piantini", "Santiago Centro", "Bavaro"],
     consorcios: ["Consorcio A-1", "ServiRed", "TechField", "Alpha Ops"],
+    dias: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
     respuestas: ["Reparado", "Cambio de Equipo", "Falla Masiva", "Cliente Ausente", "Derivado a Planta Externa"],
     tecnicos: ["Juan Perez", "Carlos Ruiz", "Dahiana Gomez", "Luis Abinader", "Marcos Pena", "Roberto Angel", "Elena Vasquez", "Pedro Martinez"]
 };
@@ -258,11 +260,13 @@ function generateData(count = 1000) {
         const zona = (Math.random() > 0.4) ? "Metro 1" : CONFIG.zonas[Math.floor(Math.random() * CONFIG.zonas.length)];
         const sector = (zona === "Metro 1" && Math.random() > 0.3) ? "Arroyo Hondo" : CONFIG.sectores[Math.floor(Math.random() * CONFIG.sectores.length)];
         const consorcio = (zona === "Metro 1") ? "Consorcio A-1" : CONFIG.consorcios[Math.floor(Math.random() * CONFIG.consorcios.length)];
+        const dia = (Math.random() > 0.6) ? "Jueves" : CONFIG.dias[Math.floor(Math.random() * CONFIG.dias.length)];
         
         // Probabilidad de SLA
         let failProb = 0.2; // base 20%
         if (zona === "Metro 1") failProb += 0.2;
         if (sector === "Arroyo Hondo") failProb += 0.15;
+        if (dia === "Jueves") failProb += 0.15;
 
         const incumple = Math.random() < failProb;
         const tiempo = incumple ? (Math.random() * 24 + 48).toFixed(1) : (Math.random() * 20 + 2).toFixed(1);
@@ -272,6 +276,7 @@ function generateData(count = 1000) {
             zona,
             sector,
             consorcio,
+            dia,
             respuesta: CONFIG.respuestas[Math.floor(Math.random() * CONFIG.respuestas.length)],
             tiempo,
             sla: incumple ? "INCUMPLE" : "CUMPLE"
@@ -289,7 +294,7 @@ function analyzeData(data) {
     // Contadores
     const counts = {
         sla: { CUMPLE: 0, INCUMPLE: 0 },
-        zona: {}, sector: {}, consorcio: {}, respuesta: {}
+        zona: {}, sector: {}, consorcio: {}, respuesta: {}, diaIncumple: {}
     };
 
     data.forEach(d => {
@@ -298,6 +303,10 @@ function analyzeData(data) {
         counts.sector[d.sector] = (counts.sector[d.sector] || 0) + 1;
         counts.consorcio[d.consorcio] = (counts.consorcio[d.consorcio] || 0) + 1;
         counts.respuesta[d.respuesta] = (counts.respuesta[d.respuesta] || 0) + 1;
+        
+        if(d.sla === 'INCUMPLE') {
+            counts.diaIncumple[d.dia] = (counts.diaIncumple[d.dia] || 0) + 1;
+        }
     });
 
     const getTop = (obj) => Object.entries(obj).sort((a,b) => b[1] - a[1]);
@@ -305,12 +314,13 @@ function analyzeData(data) {
     const topZona = getTop(counts.zona)[0];
     const topSector = getTop(counts.sector)[0];
     const topConsorcio = getTop(counts.consorcio)[0];
+    const topDia = getTop(counts.diaIncumple)[0] || ["N/A", 0];
 
     return {
         total,
         cumplidos: counts.sla.CUMPLE,
         incumplidos: counts.sla.INCUMPLE,
-        topZona, topSector, topConsorcio,
+        topZona, topSector, topConsorcio, topDia,
         allZonas: getTop(counts.zona),
         allSectores: getTop(counts.sector).slice(0, 5),
         allRespuestas: getTop(counts.respuesta)
@@ -324,16 +334,17 @@ function renderKPIs(stats) {
     const container = document.getElementById('kpi-container');
     const t = stats.total;
 
-    // Calculamos los porcentajes sobre el total de 1000 casos como pediste
     const calcPerc = (val) => ((val / t) * 100).toFixed(1) + '%';
+    const calcPercFallas = (val) => stats.incumplidos > 0 ? ((val / stats.incumplidos) * 100).toFixed(1) + '%' : '0%';
 
     const cards = [
-        { label: 'Total Casos', value: t, sub: '100% de la muestra', color: 'var(--accent)', subColor: 'var(--accent)' }, // Azul
-        { label: 'SLA Cumplido', value: stats.cumplidos, sub: `${calcPerc(stats.cumplidos)} del total`, color: 'var(--success)', subColor: 'var(--success)' }, // Verde
-        { label: 'SLA Incumplido', value: stats.incumplidos, sub: `${calcPerc(stats.incumplidos)} del total`, color: 'var(--danger)', subColor: 'var(--danger)' }, // Rojo
-        { label: 'Zona Crítica', value: stats.topZona[0], sub: `${stats.topZona[1]} casos (${calcPerc(stats.topZona[1])})`, color: '#fff', subColor: 'var(--warning)' }, // Texto blanco, sub Amarillo
-        { label: 'Sector Crítico', value: stats.topSector[0], sub: `${stats.topSector[1]} casos (${calcPerc(stats.topSector[1])})`, color: '#fff', subColor: 'var(--warning)' }, // Texto blanco, sub Amarillo
-        { label: 'Consorcio Crítico', value: stats.topConsorcio[0], sub: `${stats.topConsorcio[1]} casos (${calcPerc(stats.topConsorcio[1])})`, color: '#fff', subColor: 'var(--warning)' } // Texto blanco, sub Amarillo
+        { label: 'Total Casos', value: t, sub: '100% de la muestra', color: 'var(--accent)', subColor: 'var(--accent)' },
+        { label: 'SLA Cumplido', value: stats.cumplidos, sub: `${calcPerc(stats.cumplidos)} del total`, color: 'var(--success)', subColor: 'var(--success)' },
+        { label: 'SLA Incumplido', value: stats.incumplidos, sub: `${calcPerc(stats.incumplidos)} del total`, color: 'var(--danger)', subColor: 'var(--danger)' },
+        { label: 'Zona Crítica', value: stats.topZona[0], sub: `${stats.topZona[1]} casos (${calcPerc(stats.topZona[1])})`, color: '#fff', subColor: 'var(--warning)' },
+        { label: 'Sector Crítico', value: stats.topSector[0], sub: `${stats.topSector[1]} casos (${calcPerc(stats.topSector[1])})`, color: '#fff', subColor: 'var(--warning)' },
+        { label: 'Consorcio Crítico', value: stats.topConsorcio[0], sub: `${stats.topConsorcio[1]} casos (${calcPerc(stats.topConsorcio[1])})`, color: '#fff', subColor: 'var(--warning)' },
+        { label: 'Día Crítico (Fallas)', value: stats.topDia[0], sub: `${stats.topDia[1]} fallas (${calcPercFallas(stats.topDia[1])})`, color: '#fff', subColor: 'var(--danger)' }
     ];
 
     container.innerHTML = cards.map(c => `
@@ -346,17 +357,15 @@ function renderKPIs(stats) {
 
     const insight = `El volumen de operaciones está altamente concentrado en la zona <b>${stats.topZona[0]}</b> 
     (representando el ${calcPerc(stats.topZona[1])} del total). Específicamente, debemos revisar el desempeño 
-    en el sector <b>${stats.topSector[0]}</b> y con el aliado <b>${stats.topConsorcio[0]}</b> para mitigar 
-    el ${calcPerc(stats.incumplidos)} de incumplimientos de SLA globales.`;
+    en el sector <b>${stats.topSector[0]}</b> con el aliado <b>${stats.topConsorcio[0]}</b>. Además, se detectó un 
+    cuello de botella operativo los días <b>${stats.topDia[0]}</b>, que concentran el ${calcPercFallas(stats.topDia[1])} de los SLA vencidos.`;
     
     document.getElementById('smart-insight').innerHTML = insight;
 }
 
 /**
- * CANVAS CHART ENGINE (Custom implementation)
+ * CANVAS CHART ENGINE
  */
-
-// 1. Gráfico de Pastel (Pie Chart) para SLA con % adentro
 function drawPieChart(canvasId, values, labels, colors) {
     const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext('2d');
@@ -379,7 +388,6 @@ function drawPieChart(canvasId, values, labels, colors) {
     values.forEach((val, i) => {
         const sliceAngle = (2 * Math.PI * val) / total;
         
-        // Dibujar rebanada
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
@@ -387,7 +395,6 @@ function drawPieChart(canvasId, values, labels, colors) {
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Texto grande adentro del gráfico
         const midAngle = startAngle + sliceAngle / 2;
         const textX = centerX + Math.cos(midAngle) * (radius * 0.55);
         const textY = centerY + Math.sin(midAngle) * (radius * 0.55);
@@ -395,19 +402,18 @@ function drawPieChart(canvasId, values, labels, colors) {
         const percentage = ((val / total) * 100).toFixed(1) + '%';
         
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 20px Arial'; // TEXTO GRANDE
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(percentage, textX, textY - 10);
         
-        ctx.font = 'bold 14px Arial'; // ETIQUETA GRANDE
+        ctx.font = 'bold 14px Arial';
         ctx.fillText(labels[i], textX, textY + 12);
 
         startAngle += sliceAngle;
     });
 }
 
-// 2. Gráfico de Barras con nombres y datos mucho más grandes
 function drawBarChart(canvasId, dataLabels, dataValues, color = '#38bdf8') {
     const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext('2d');
@@ -417,7 +423,7 @@ function drawBarChart(canvasId, dataLabels, dataValues, color = '#38bdf8') {
     ctx.scale(dpr, dpr);
 
     const width = canvas.offsetWidth;
-    const height = canvas.offsetHeight - 30; // Espacio para texto abajo
+    const height = canvas.offsetHeight - 30;
     const padding = 50;
     const barWidth = (width - padding * 2) / dataLabels.length - 15;
     const maxVal = Math.max(...dataValues) * 1.2;
@@ -429,24 +435,20 @@ function drawBarChart(canvasId, dataLabels, dataValues, color = '#38bdf8') {
         const x = padding + i * (barWidth + 15);
         const y = height - barHeight;
 
-        // Barra
         ctx.fillStyle = color;
         ctx.beginPath();
         if(ctx.roundRect) {
             ctx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
         } else {
-            ctx.rect(x, y, barWidth, barHeight); // Fallback navegadores viejos
+            ctx.rect(x, y, barWidth, barHeight);
         }
         ctx.fill();
 
-        // Etiquetas X (Nombres más grandes)
         ctx.fillStyle = '#e2e8f0';
         ctx.font = 'bold 13px Arial';
         ctx.textAlign = 'center';
-        // Recortamos el texto si es muy largo para que no se superponga
         ctx.fillText(dataLabels[i].substring(0, 12), x + (barWidth/2), height + 20);
         
-        // Valores numéricos encima de las barras (Mucho más grandes)
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 16px Arial';
         ctx.fillText(val, x + (barWidth/2), y - 10);
@@ -464,6 +466,7 @@ function renderTable(data) {
             <td>${row.zona}</td>
             <td>${row.consorcio}</td>
             <td>${row.sector}</td>
+            <td>${row.dia}</td>
             <td><span class="badge ${row.sla === 'INCUMPLE' ? 'badge-danger' : 'badge-success'}">${row.sla}</span></td>
             <td>${row.respuesta}</td>
             <td>${row.tiempo}h</td>
@@ -488,35 +491,25 @@ function filterTable() {
  * INITIALIZATION
  */
 function initDashboard() {
-    // 1. Generar un volumen aleatorio de casos (ejemplo: entre 600 y 1500)
-    // Puedes cambiar estos números si quieres más o menos casos
     const volumenAleatorio = Math.floor(Math.random() * (1500 - 600 + 1)) + 600;
 
-    // 2. Pasamos ese número aleatorio a nuestro generador de datos
     RAW_DATA = generateData(volumenAleatorio);
     const stats = analyzeData(RAW_DATA);
     
     document.getElementById('last-update').innerText = `Actualizado: ${new Date().toLocaleTimeString()}`;
-    
-    // 3. Actualizamos el texto en la pantalla para que muestre el volumen real
     document.getElementById('contador-registros').innerText = `Visualizando ${volumenAleatorio} registros operativos`;
 
     renderKPIs(stats);
     renderTable(RAW_DATA);
 
-    // Renderizar Gráficos con un pequeño retraso para asegurar que los divs tengan su tamaño final
     setTimeout(() => {
-        // Pastel SLA: Verde para Cumple, Rojo para Incumple
         drawPieChart('chartSlaPie', [stats.cumplidos, stats.incumplidos], ['CUMPLE', 'INCUMPLE'], ['#10b981', '#f43f5e']);
-        
-        // Barras
         drawBarChart('chartRespuesta', stats.allRespuestas.map(d => d[0]), stats.allRespuestas.map(d => d[1]), '#818cf8');
         drawBarChart('chartZona', stats.allZonas.map(d => d[0]), stats.allZonas.map(d => d[1]), '#fbbf24');
         drawBarChart('chartSector', stats.allSectores.map(d => d[0]), stats.allSectores.map(d => d[1]), '#38bdf8');
     }, 150);
 }
 
-// Start
 window.onload = initDashboard;
 </script>
 
