@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLA Operational Intelligence | Ops de Campo Metro I</title>
+    <style>
+        :root {
+            /* Colores del diseño original */
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.2);
+            --danger: #f43f5e;
+            --success: #10b981;
+            --warning: #fbbf24;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+            --border: #334155;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        /* Layout */
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        header {
+            grid-column: span 4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .header-title h1 { font-size: 1.5rem; color: var(--accent); letter-spacing: 1px; }
+        .header-title p { color: var(--text-dim); font-size: 0.85rem; }
+
+        /* KPI Cards */
+        .kpi-grid {
+            grid-column: span 4;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .kpi-card:hover { transform: translateY(-5px); border-color: var(--accent); }
+
+        .kpi-label { color: var(--text-dim); font-size: 0.85rem; text-transform: uppercase; font-weight: 600; }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; margin: 5px 0; display: block; }
+        .kpi-subtext { font-size: 0.85rem; font-weight: bold; }
+
+        /* Intelligence Insight Section */
+        .insight-section {
+            grid-column: span 4;
+            background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+            border-left: 4px solid var(--accent);
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .ai-icon {
+            font-size: 2rem;
+            background: var(--accent-glow);
+            padding: 10px;
+            border-radius: 50%;
+        }
+
+        .insight-text h3 { font-size: 1rem; color: var(--accent); margin-bottom: 5px; }
+        .insight-content { font-size: 0.95rem; color: var(--text-main); }
+
+        /* Charts */
+        .chart-container {
+            grid-column: span 2;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            min-height: 350px;
+        }
+
+        @media (max-width: 1024px) { .chart-container { grid-column: span 4; } }
+
+        .chart-container h3 { font-size: 1.1rem; border-left: 3px solid var(--accent); padding-left: 8px; margin-bottom: 15px; }
+        canvas { width: 100%; height: 280px; }
+
+        /* Tables & Filters */
+        .controls-section {
+            grid-column: span 4;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            flex-wrap: wrap;
+        }
+
+        select, input {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        button {
+            background: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.8; }
+
+        .data-table-container {
+            grid-column: span 4;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { text-align: left; color: var(--text-dim); padding: 12px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid var(--border); }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        .badge {
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .badge-danger { background: rgba(244, 63, 94, 0.2); color: var(--danger); }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <header>
+        <div class="header-title">
+            <h1>VISION METRICS DPV <span style="font-weight: 200;">| Ops de Campo Metro I</span></h1>
+            <p id="last-update">Actualizado: --</p>
+        </div>
+        <div class="header-actions">
+            <button onclick="initDashboard()">REGENERAR DATOS</button>
+        </div>
+    </header>
+
+    <div class="kpi-grid" id="kpi-container">
+        </div>
+
+    <div class="insight-section">
+        <div class="ai-icon">🧠</div>
+        <div class="insight-text">
+            <h3>Análisis de Patrones Críticos</h3>
+            <div class="insight-content" id="smart-insight">Procesando datos...</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h3>Cumplimiento de SLA Global</h3>
+        <canvas id="chartSlaPie"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>Tipos de Respuesta Técnica</h3>
+        <canvas id="chartRespuesta"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>Volumen por Zona</h3>
+        <canvas id="chartZona"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>Top 5 Sectores Críticos</h3>
+        <canvas id="chartSector"></canvas>
+    </div>
+
+    <div class="controls-section">
+        <input type="text" id="searchTable" placeholder="Buscar técnico o sector..." onkeyup="filterTable()" style="width: 250px;">
+        <select id="filterSLA" onchange="filterTable()">
+            <option value="">Todos los Estados SLA</option>
+            <option value="INCUMPLE">Solo Incumplidos</option>
+            <option value="CUMPLE">Solo Cumplidos</option>
+        </select>
+        <div style="flex-grow: 1;"></div>
+<span id="contador-registros" style="font-size: 0.85rem; color: var(--text-dim)">Visualizando registros...</span>    </div>
+
+    <div class="data-table-container">
+        <table id="techTable">
+            <thead>
+                <tr>
+                    <th>Técnico</th>
+                    <th>Zona</th>
+                    <th>Consorcio</th>
+                    <th>Sector</th>
+                    <th>SLA</th>
+                    <th>Respuesta Técnica</th>
+                    <th>Tiempo</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+/**
+ * APP STATE & DATA GENERATOR
+ */
+let RAW_DATA = [];
+const CONFIG = {
+    zonas: ["Metro 1", "Metro 2", "Norte", "Sur", "Este"],
+    sectores: ["Arroyo Hondo", "Naco", "Los Mina", "Herrera", "Bella Vista", "Piantini", "Santiago Centro", "Bavaro"],
+    consorcios: ["Consorcio A-1", "ServiRed", "TechField", "Alpha Ops"],
+    respuestas: ["Reparado", "Cambio de Equipo", "Falla Masiva", "Cliente Ausente", "Derivado a Planta Externa"],
+    tecnicos: ["Juan Perez", "Carlos Ruiz", "Dahiana Gomez", "Luis Abinader", "Marcos Pena", "Roberto Angel", "Elena Vasquez", "Pedro Martinez"]
+};
+
+function generateData(count = 1000) {
+    const data = [];
+    for (let i = 0; i < count; i++) {
+        const zona = (Math.random() > 0.4) ? "Metro 1" : CONFIG.zonas[Math.floor(Math.random() * CONFIG.zonas.length)];
+        const sector = (zona === "Metro 1" && Math.random() > 0.3) ? "Arroyo Hondo" : CONFIG.sectores[Math.floor(Math.random() * CONFIG.sectores.length)];
+        const consorcio = (zona === "Metro 1") ? "Consorcio A-1" : CONFIG.consorcios[Math.floor(Math.random() * CONFIG.consorcios.length)];
+        
+        // Probabilidad de SLA
+        let failProb = 0.2; // base 20%
+        if (zona === "Metro 1") failProb += 0.2;
+        if (sector === "Arroyo Hondo") failProb += 0.15;
+
+        const incumple = Math.random() < failProb;
+        const tiempo = incumple ? (Math.random() * 24 + 48).toFixed(1) : (Math.random() * 20 + 2).toFixed(1);
+
+        data.push({
+            tecnico: CONFIG.tecnicos[Math.floor(Math.random() * CONFIG.tecnicos.length)],
+            zona,
+            sector,
+            consorcio,
+            respuesta: CONFIG.respuestas[Math.floor(Math.random() * CONFIG.respuestas.length)],
+            tiempo,
+            sla: incumple ? "INCUMPLE" : "CUMPLE"
+        });
+    }
+    return data;
+}
+
+/**
+ * ANALYTICS ENGINE
+ */
+function analyzeData(data) {
+    const total = data.length;
+    
+    // Contadores
+    const counts = {
+        sla: { CUMPLE: 0, INCUMPLE: 0 },
+        zona: {}, sector: {}, consorcio: {}, respuesta: {}
+    };
+
+    data.forEach(d => {
+        counts.sla[d.sla]++;
+        counts.zona[d.zona] = (counts.zona[d.zona] || 0) + 1;
+        counts.sector[d.sector] = (counts.sector[d.sector] || 0) + 1;
+        counts.consorcio[d.consorcio] = (counts.consorcio[d.consorcio] || 0) + 1;
+        counts.respuesta[d.respuesta] = (counts.respuesta[d.respuesta] || 0) + 1;
+    });
+
+    const getTop = (obj) => Object.entries(obj).sort((a,b) => b[1] - a[1]);
+
+    const topZona = getTop(counts.zona)[0];
+    const topSector = getTop(counts.sector)[0];
+    const topConsorcio = getTop(counts.consorcio)[0];
+
+    return {
+        total,
+        cumplidos: counts.sla.CUMPLE,
+        incumplidos: counts.sla.INCUMPLE,
+        topZona, topSector, topConsorcio,
+        allZonas: getTop(counts.zona),
+        allSectores: getTop(counts.sector).slice(0, 5),
+        allRespuestas: getTop(counts.respuesta)
+    };
+}
+
+/**
+ * RENDER FUNCTIONS
+ */
+function renderKPIs(stats) {
+    const container = document.getElementById('kpi-container');
+    const t = stats.total;
+
+    // Calculamos los porcentajes sobre el total de 1000 casos como pediste
+    const calcPerc = (val) => ((val / t) * 100).toFixed(1) + '%';
+
+    const cards = [
+        { label: 'Total Casos', value: t, sub: '100% de la muestra', color: 'var(--accent)', subColor: 'var(--accent)' }, // Azul
+        { label: 'SLA Cumplido', value: stats.cumplidos, sub: `${calcPerc(stats.cumplidos)} del total`, color: 'var(--success)', subColor: 'var(--success)' }, // Verde
+        { label: 'SLA Incumplido', value: stats.incumplidos, sub: `${calcPerc(stats.incumplidos)} del total`, color: 'var(--danger)', subColor: 'var(--danger)' }, // Rojo
+        { label: 'Zona Crítica', value: stats.topZona[0], sub: `${stats.topZona[1]} casos (${calcPerc(stats.topZona[1])})`, color: '#fff', subColor: 'var(--warning)' }, // Texto blanco, sub Amarillo
+        { label: 'Sector Crítico', value: stats.topSector[0], sub: `${stats.topSector[1]} casos (${calcPerc(stats.topSector[1])})`, color: '#fff', subColor: 'var(--warning)' }, // Texto blanco, sub Amarillo
+        { label: 'Consorcio Crítico', value: stats.topConsorcio[0], sub: `${stats.topConsorcio[1]} casos (${calcPerc(stats.topConsorcio[1])})`, color: '#fff', subColor: 'var(--warning)' } // Texto blanco, sub Amarillo
+    ];
+
+    container.innerHTML = cards.map(c => `
+        <div class="kpi-card">
+            <span class="kpi-label">${c.label}</span>
+            <span class="kpi-value" style="color: ${c.color}">${c.value}</span>
+            <span class="kpi-subtext" style="color: ${c.subColor}">${c.sub}</span>
+        </div>
+    `).join('');
+
+    const insight = `El volumen de operaciones está altamente concentrado en la zona <b>${stats.topZona[0]}</b> 
+    (representando el ${calcPerc(stats.topZona[1])} del total). Específicamente, debemos revisar el desempeño 
+    en el sector <b>${stats.topSector[0]}</b> y con el aliado <b>${stats.topConsorcio[0]}</b> para mitigar 
+    el ${calcPerc(stats.incumplidos)} de incumplimientos de SLA globales.`;
+    
+    document.getElementById('smart-insight').innerHTML = insight;
+}
+
+/**
+ * CANVAS CHART ENGINE (Custom implementation)
+ */
+
+// 1. Gráfico de Pastel (Pie Chart) para SLA con % adentro
+function drawPieChart(canvasId, values, labels, colors) {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.min(width, height) / 2.5;
+
+    const total = values.reduce((a, b) => a + b, 0);
+    let startAngle = 0;
+
+    ctx.clearRect(0, 0, width, height);
+
+    values.forEach((val, i) => {
+        const sliceAngle = (2 * Math.PI * val) / total;
+        
+        // Dibujar rebanada
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+
+        // Texto grande adentro del gráfico
+        const midAngle = startAngle + sliceAngle / 2;
+        const textX = centerX + Math.cos(midAngle) * (radius * 0.55);
+        const textY = centerY + Math.sin(midAngle) * (radius * 0.55);
+
+        const percentage = ((val / total) * 100).toFixed(1) + '%';
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Arial'; // TEXTO GRANDE
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(percentage, textX, textY - 10);
+        
+        ctx.font = 'bold 14px Arial'; // ETIQUETA GRANDE
+        ctx.fillText(labels[i], textX, textY + 12);
+
+        startAngle += sliceAngle;
+    });
+}
+
+// 2. Gráfico de Barras con nombres y datos mucho más grandes
+function drawBarChart(canvasId, dataLabels, dataValues, color = '#38bdf8') {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight - 30; // Espacio para texto abajo
+    const padding = 50;
+    const barWidth = (width - padding * 2) / dataLabels.length - 15;
+    const maxVal = Math.max(...dataValues) * 1.2;
+
+    ctx.clearRect(0,0, width, canvas.offsetHeight);
+
+    dataValues.forEach((val, i) => {
+        const barHeight = (val / maxVal) * (height - padding);
+        const x = padding + i * (barWidth + 15);
+        const y = height - barHeight;
+
+        // Barra
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        if(ctx.roundRect) {
+            ctx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
+        } else {
+            ctx.rect(x, y, barWidth, barHeight); // Fallback navegadores viejos
+        }
+        ctx.fill();
+
+        // Etiquetas X (Nombres más grandes)
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 13px Arial';
+        ctx.textAlign = 'center';
+        // Recortamos el texto si es muy largo para que no se superponga
+        ctx.fillText(dataLabels[i].substring(0, 12), x + (barWidth/2), height + 20);
+        
+        // Valores numéricos encima de las barras (Mucho más grandes)
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(val, x + (barWidth/2), y - 10);
+    });
+}
+
+/**
+ * TABLE & FILTERS
+ */
+function renderTable(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = data.slice(0, 15).map(row => `
+        <tr>
+            <td><strong>${row.tecnico}</strong></td>
+            <td>${row.zona}</td>
+            <td>${row.consorcio}</td>
+            <td>${row.sector}</td>
+            <td><span class="badge ${row.sla === 'INCUMPLE' ? 'badge-danger' : 'badge-success'}">${row.sla}</span></td>
+            <td>${row.respuesta}</td>
+            <td>${row.tiempo}h</td>
+        </tr>
+    `).join('');
+}
+
+function filterTable() {
+    const search = document.getElementById('searchTable').value.toLowerCase();
+    const sla = document.getElementById('filterSLA').value;
+    
+    const filtered = RAW_DATA.filter(d => {
+        const matchesSearch = d.tecnico.toLowerCase().includes(search) || d.sector.toLowerCase().includes(search);
+        const matchesSLA = sla === "" || d.sla === sla;
+        return matchesSearch && matchesSLA;
+    });
+
+    renderTable(filtered);
+}
+
+/**
+ * INITIALIZATION
+ */
+function initDashboard() {
+    // 1. Generar un volumen aleatorio de casos (ejemplo: entre 600 y 1500)
+    // Puedes cambiar estos números si quieres más o menos casos
+    const volumenAleatorio = Math.floor(Math.random() * (1500 - 600 + 1)) + 600;
+
+    // 2. Pasamos ese número aleatorio a nuestro generador de datos
+    RAW_DATA = generateData(volumenAleatorio);
+    const stats = analyzeData(RAW_DATA);
+    
+    document.getElementById('last-update').innerText = `Actualizado: ${new Date().toLocaleTimeString()}`;
+    
+    // 3. Actualizamos el texto en la pantalla para que muestre el volumen real
+    document.getElementById('contador-registros').innerText = `Visualizando ${volumenAleatorio} registros operativos`;
+
+    renderKPIs(stats);
+    renderTable(RAW_DATA);
+
+    // Renderizar Gráficos con un pequeño retraso para asegurar que los divs tengan su tamaño final
+    setTimeout(() => {
+        // Pastel SLA: Verde para Cumple, Rojo para Incumple
+        drawPieChart('chartSlaPie', [stats.cumplidos, stats.incumplidos], ['CUMPLE', 'INCUMPLE'], ['#10b981', '#f43f5e']);
+        
+        // Barras
+        drawBarChart('chartRespuesta', stats.allRespuestas.map(d => d[0]), stats.allRespuestas.map(d => d[1]), '#818cf8');
+        drawBarChart('chartZona', stats.allZonas.map(d => d[0]), stats.allZonas.map(d => d[1]), '#fbbf24');
+        drawBarChart('chartSector', stats.allSectores.map(d => d[0]), stats.allSectores.map(d => d[1]), '#38bdf8');
+    }, 150);
+}
+
+// Start
+window.onload = initDashboard;
+</script>
+
+</body>
+</html>
